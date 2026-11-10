@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>HARD — The Hummingbird Rush</title>
+<meta name="theme-color" content="#071b25">
+<meta name="description" content="HARD — The Hummingbird Rush, a hummingbird platform game.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#071b25;color:#fff;font-family:system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:12px}
+main{width:min(100%,960px)}h1{text-align:center;color:#c8f58b;font-size:clamp(20px,4vw,30px);margin:0 0 8px}
+#frame{position:relative;border:3px solid #75c94a;border-radius:12px;overflow:hidden;background:#55b9e8}
+canvas{width:100%;height:auto;display:block;touch-action:none}
+.hud{position:absolute;top:8px;left:9px;right:9px;display:flex;justify-content:space-between;pointer-events:none;font-weight:900;text-shadow:2px 2px #10202c}
+.hud span{background:#102b39cc;border:1px solid #b4e98d;border-radius:8px;padding:5px 9px}
+#overlay{position:absolute;inset:0;background:#061d28d9;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px}
+.panel{background:#174b48;border:3px solid #a9e66e;border-radius:16px;padding:20px;max-width:330px}
+.panel h2{color:#c8f58b;margin:5px 0;font-size:25px}.panel p{font-size:14px;line-height:1.5}
+button{border:2px solid #c6ef91;background:#286e45;color:white;border-radius:12px;font-weight:900;padding:13px 18px;font-size:16px;touch-action:none;user-select:none}
+.controls{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px}
+.group{display:flex;gap:9px}.controls button{width:62px;height:58px;padding:4px;font-size:22px}
+#fly{width:105px;background:#985426}
+#status{text-align:center;color:#b6d9c4;font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<h1>🐦 HARD</h1>
+<div id="frame">
+<canvas id="game" width="800" height="450"></canvas>
+<div class="hud"><span>🐦 <b id="hearts">♥♥♥</b></span><span>🪙 <b id="score">0</b></span><span>LEVEL 1</span></div>
+<div id="overlay"><div class="panel"><div style="font-size:48px">🐦</div><h2>HUMMINGBIRD<br>ADVENTURE</h2><p>The Hummingbird Rush! Collect coins, dodge the bees, and soar through the jungle.</p><button id="start">START GAME ▶</button><p>Touch controls below • Keyboard: arrows + space</p></div></div>
+</div>
+<div class="controls"><div class="group"><button id="left">◀</button><button id="right">▶</button></div><button id="fly">FLY ⬆</button></div>
+<div class="controls"><button id="restart">↻ RESTART</button><span id="status">Collect coins and reach the end!</span></div>
+<div id="status">Hold ◀ / ▶ to move. Hold FLY to rise.</div>
+</main>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),W=800,H=450;
+const $=id=>document.getElementById(id);
+const platforms=[[0,360,430,160],[480,300,170,24],[700,240,155,24],[900,340,220,160],[1190,275,175,24],[1430,210,165,24],[1640,340,210,160],[1910,275,170,24],[2150,215,180,24],[2400,340,250,160],[2730,275,180,24],[3000,340,250,160],[3310,275,220,24]];
+const coinLocations=[[160,310],[530,260],[590,260],[750,200],[960,300],[1030,300],[1230,235],[1480,170],[1700,300],[1950,230],[2200,175],[2460,300],[2520,300],[2780,230],[3060,300],[3150,300],[3360,230]];
+let p,coins,bees,score,lives,cam,keys={},active=false,over=false,win=false,inv=0,time=0,last=0;
+function reset(){p={x:65,y:280,w:36,h:31,vx:0,vy:0,face:1};coins=coinLocations.map(([x,y])=>({x,y,got:false}));bees=[{x:820,y:195,h:195,d:1},{x:1300,y:165,h:165,d:-1},{x:2020,y:185,h:185,d:1},{x:2530,y:260,h:260,d:-1},{x:3100,y:230,h:230,d:1}];score=0;lives=3;cam=0;inv=0;over=false;win=false;hud()}
+function hud(){$('score').textContent=score;$('hearts').textContent='♥'.repeat(lives)||'0'}
+function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+function bird(x,y,face){
+ctx.save();ctx.translate(x+18,y+15);ctx.scale(face,1);
+rect(-17,5,14,10,'#172d43');rect(-25,12,14,5,'#26344c');rect(-12,-8,28,23,'#008f79');rect(-7,-14,22,17,'#10c6a0');rect(4,-10,12,19,'#1655a4');rect(9,-8,8,16,'#422c99');rect(-11,-7,13,9,'#126c70');rect(-17,-15,13,13,'#218f99');rect(0,-22,20,14,'#08bda0');rect(8,-25,12,8,'#1ad0b3');rect(14,-20,7,9,'#164d9a');rect(15,-18,4,4,'#091426');rect(19,-17,3,3,'white');
+ctx.fillStyle='#16182a';ctx.beginPath();ctx.moveTo(20,-17);ctx.lineTo(43,-24);ctx.lineTo(21,-12);ctx.fill();
+rect(-5,14,3,6,'#55465a');rect(8,14,3,6,'#55465a');rect(-9,19,11,2,'#55465a');rect(5,19,11,2,'#55465a');ctx.restore()
+}
+function background(){
+let sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#36a9ed');sky.addColorStop(1,'#b0e8c4');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+for(let i=0;i<7;i++){let x=((i*170-cam*.17)%950+950)%950;ctx.fillStyle='#e6f6f5';ctx.beginPath();ctx.arc(x,75+i%3*35,23,0,7);ctx.arc(x+28,65+i%3*35,28,0,7);ctx.arc(x+55,77+i%3*35,21,0,7);ctx.fill()}
+for(let i=0;i<5;i++){let x=((i*240-cam*.26)%1000+1000)%1000;ctx.fillStyle='#6ba8c6';ctx.beginPath();ctx.moveTo(x-100,345);ctx.lineTo(x+80,130);ctx.lineTo(x+250,345);ctx.fill();ctx.fillStyle='#e6f3ed';ctx.beginPath();ctx.moveTo(x+43,174);ctx.lineTo(x+80,130);ctx.lineTo(x+117,174);ctx.fill()}
+for(let i=0;i<12;i++){let x=((i*100-cam*.45)%1000+1000)%1000;rect(x+25,270,13,110,'#347c64');ctx.fillStyle='#258e68';ctx.beginPath();ctx.arc(x+30,255,39,0,7);ctx.fill();ctx.fillStyle='#48ad76';ctx.beginPath();ctx.arc(x+8,275,26,0,7);ctx.fill()}
+let wx=((610-cam*.4)%950+950)%950;rect(wx,290,56,150,'#69c7ed');rect(wx+10,290,7,150,'#d1f6f8');rect(wx+31,290,7,150,'#a1e8f6')
+}
+function drawPlatform(a){let [x,y,w,h]=a,s=x-cam;if(s>810||s+w<0)return;rect(s,y+8,w,h-8,'#98542f');rect(s,y+15,w,h-15,'#ad693c');for(let j=0;j<w;j+=34){rect(s+j+4,y+23,23,13,'#ce8647');rect(s+j+11,y+44,14,8,'#87492e')}rect(s-2,y,w+4,10,'#347c39');rect(s,y-5,w,7,'#8bdf48');for(let j=0;j<w;j+=14)rect(s+j,y-8,8,7,'#b0ed64')}
+function drawCoin(o){if(o.got)return;let x=o.x-cam,y=o.y+Math.sin(time*4+o.x)*3;ctx.fillStyle='#98530d';ctx.beginPath();ctx.arc(x,y,12,0,7);ctx.fill();ctx.fillStyle='#ffc52f';ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fill();rect(x-2,y-5,3,10,'#fff4a3');rect(x-5,y-1,10,3,'#fff4a3')}
+function drawBee(b){let x=b.x-cam,y=b.y+Math.sin(time*3+b.x)*7;ctx.fillStyle='#f6bd36';ctx.beginPath();ctx.ellipse(x,y,17,11,0,0,7);ctx.fill();rect(x-5,y-10,5,20,'#26303a');rect(x+6,y-9,5,18,'#26303a');ctx.fillStyle='#e8f8ff';ctx.beginPath();ctx.ellipse(x-5,y-14,7,10,-.5,0,7);ctx.ellipse(x+8,y-14,7,10,.5,0,7);ctx.fill()}
+function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+function damage(){if(inv>0)return;lives--;inv=1.2;hud();if(lives<=0)over=true}
+function update(dt){
+time+=dt;let d=(keys.right?1:0)-(keys.left?1:0);p.vx=d*260;if(d)p.face=d;p.vy+=1250*dt;if(keys.fly)p.vy-=2050*dt;p.vy=Math.max(-500,Math.min(720,p.vy));
+p.x+=p.vx*dt;for(let a of platforms){let b={x:a[0],y:a[1],w:a[2],h:a[3]};if(hit(p,b)){if(p.vx>0)p.x=b.x-p.w;else if(p.vx<0)p.x=b.x+b.w}}
+p.y+=p.vy*dt;for(let a of platforms){let b={x:a[0],y:a[1],w:a[2],h:a[3]};if(hit(p,b)){if(p.vy>0)p.y=b.y-p.h;else if(p.vy<0)p.y=b.y+b.h;p.vy=0}}
+inv=Math.max(0,inv-dt);if(p.y>H+60){damage();p.x=Math.max(40,p.x-80);p.y=250;p.vy=0}
+for(let o of coins)if(!o.got&&hit(p,{x:o.x-10,y:o.y-10,w:20,h:20})){o.got=true;score++;hud()}
+for(let b of bees){b.x+=b.d*65*dt;if(Math.abs(b.x-(b.h===195?820:b.h===165?1300:b.h===185?2020:b.h===260?2530:3100))>90)b.d*=-1;if(inv<=0&&hit(p,{x:b.x-15,y:b.y-12,w:30,h:25})){damage();p.vy=-260;p.vx=-p.face*110}}
+if(p.x>3500){win=true;over=true}cam=Math.max(0,Math.min(3600-W,p.x-W*.4))
+}
+function draw(){
+background();platforms.forEach(drawPlatform);coins.forEach(drawCoin);bees.forEach(drawBee);if(inv<=0||Math.floor(inv*12)%2===0)bird(p.x-cam,p.y,p.face);
+if(over){rect(0,0,W,H,'#071b28');ctx.textAlign='center';ctx.fillStyle='#c8f48b';ctx.font='bold 38px monospace';ctx.fillText(win?'LEVEL COMPLETE!':'GAME OVER',W/2,190);ctx.fillStyle='white';ctx.font='20px monospace';ctx.fillText('Coins: '+score+' • Press RESTART',W/2,235)}
+}
+function loop(now){let dt=Math.min((now-last)/1000,.03);last=now;if(active&&!over)update(dt);draw();requestAnimationFrame(loop)}
+function bind(id,key){let el=$(id);el.addEventListener('pointerdown',e=>{e.preventDefault();keys[key]=true;try{el.setPointerCapture(e.pointerId)}catch(_){}});['pointerup','pointercancel','lostpointercapture'].forEach(ev=>el.addEventListener(ev,()=>keys[key]=false))}
+bind('left','left');bind('right','right');bind('fly','fly');
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'||e.key==='a')keys.left=true;if(e.key==='ArrowRight'||e.key==='d')keys.right=true;if(['ArrowUp',' ','w'].includes(e.key))keys.fly=true});
+window.addEventListener('keyup',e=>{if(e.key==='ArrowLeft'||e.key==='a')keys.left=false;if(e.key==='ArrowRight'||e.key==='d')keys.right=false;if(['ArrowUp',' ','w'].includes(e.key))keys.fly=false});
+function begin(){reset();active=true;$('overlay').style.display='none'}
+$('start').addEventListener('click',begin);$('restart').addEventListener('click',begin);
+reset();requestAnimationFrame(loop);
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}
+</script>
+</body></html>
